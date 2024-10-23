@@ -1,0 +1,109 @@
+kubectl config set-context --current --namespace=redis-ns
+
+kubectl config set-context --current --namespace=postgres-ns
+
+kubectl config set-context --current --namespace=client
+
+kubectl apply -f .
+
+
+
+kubectl get pod -o wide
+kubectl get svc
+kubectl get pvc
+kubectl logs sentinel-0
+
+
+
+
+
+
+
+
+kubectl exec -it postgres-0 -n postgres-ns -- sh -c 'PGPASSWORD=tren7979  psql -U postgres -d mydatabase'
+
+kubectl exec -it redis-0 -n redis-ns -- redis-cli
+
+AUTH
+
+keys *
+
+SELECT * FROM articles;
+
+
+
+kubectl get pods -o wide
+
+kubectl get svc
+
+kubect get pvc
+
+kubectl exec -it redis-2 -n redis-ns -- redis-cli
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+VORREI CHE IL JOB GENERA 20 NUMERI CASUALI DA 1 A 500 E GLI CONSIDERI COME ID ARTCOLO
+INTERROGA PRIMA REDIS SE SONO PRESENTI IN ESSO STAMPA HIT
+ALTRIMENTI MISS CERCA L'ARTICOLO IN PG E POI LO INSERISCE AL POSTO DEL ARTICOLO CHE HA FATTO MISS IN REDIS
+
+127.0.0.1:6379> keys *
+ 1) "articolo:482|articolo-469|nome-469|codice-469"
+ 2) "articolo:407|articolo-319|nome-319|codice-319"
+ 3) "articolo:402|articolo-314|nome-314|codice-314"
+ 4) "articolo:496|articolo-496|nome-496|codice-496"
+ 5) "articolo:476|articolo-458|nome-458|codice-458"
+ 6) "articolo:497|articolo-497|nome-497|codice-497"
+
+ FORMATO DEL DB PG AL COMADO SELECT * FROM articles;
+
+  id  |   articolo   |   nome   |   codice
+-----+--------------+----------+------------
+   1 | articolo-1   | nome-1   | codice-001
+   2 | articolo-3   | nome-3   | codice-003
+   3 | articolo-4   | nome-4   | codice-004
+   4 | articolo-7   | nome-7   | codice-007
+   5 | articolo-8   | nome-8   | codice-008
+   6 | articolo-10  | nome-10  | codice-010
+   7 | articolo-12  | nome-12  | codice-012
+   8 | articolo-14  | nome-14  | codice-014
+   9 | articolo-15  | nome-15  | codice-015
+  10 | articolo-17  | nome-17  | codice-017
+  11 | articolo-18  | nome-18  | codice-018
+  12 | articolo-19  | nome-19  | codice-019
+  13 | articolo-20  | nome-20  | codice-020
+  14 | articolo-21  | nome-21  | codice-021
+  15 | articolo-25  | nome-25  | codice-025
+  16 | articolo-27  | nome-27  | codice-027
+  17 | articolo-30  | nome-30  | codice-030
+  18 | articolo-31  | nome-31  | codice-031
+  19 | articolo-32  | nome-32  | codice-032
+  20 | articolo-35  | nome-35  | codice-035
+  21 | articolo-36  | nome-36  | codice-036
+
+kubectl delete job --all
+kubectl delete service --all
+kubectl delete secret --all
+kubectl delete configmap --all
+
+

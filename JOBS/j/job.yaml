@@ -1,0 +1,110 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: data-inserter
+  namespace: client
+spec:
+  backoffLimit: 4
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: data-inserter
+        image: alpine:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            # Update and install necessary packages
+            echo "Updating and installing packages..."
+            apk update
+            apk add --no-cache postgresql-client redis jq
+
+            # Check Redis connection
+            echo "Checking Redis connection..."
+            MASTER_INFO=$(redis-cli -h sentinel.redis-ns.svc.cluster.local -p 5000 sentinel get-master-addr-by-name mymaster)
+            MASTER_IP=$(echo $MASTER_INFO | awk '{print $1}')
+            MASTER_PORT=$(echo $MASTER_INFO | awk '{print $2}')
+            echo "Redis master info: $MASTER_INFO"
+            echo "Redis IP: $MASTER_IP, Port: $MASTER_PORT"
+
+            # Check Redis connection
+            redis-cli -h $MASTER_IP -p $MASTER_PORT PING || { echo "Failed to connect to Redis. Exiting."; exit 1; }
+            echo "Redis connection successful."
+
+            # Check PostgreSQL connection
+            echo "Checking PostgreSQL connection..."
+            PGPASSWORD=$POSTGRES_PASSWORD pg_isready -h postgres.postgres-ns.svc.cluster.local -U postgres || { echo "Failed to connect to PostgreSQL. Exiting."; exit 1; }
+            echo "PostgreSQL connection successful."
+
+            # Create table if not exists
+            echo "Creating table in PostgreSQL if not exists..."
+            PGPASSWORD=$POSTGRES_PASSWORD psql -h postgres.postgres-ns.svc.cluster.local -U postgres -d mydatabase -c "
+              DO \$\$
+              BEGIN
+                IF NOT EXISTS (
+                  SELECT 1
+                  FROM pg_catalog.pg_tables
+                  WHERE schemaname = 'public' AND tablename = 'articles'
+                ) THEN
+                  CREATE TABLE articles (
+                    id SERIAL PRIMARY KEY,
+                    nome_articolo TEXT NOT NULL,
+                    size TEXT NOT NULL,
+                    price NUMERIC NOT NULL
+                  );
+                END IF;
+              END
+              \$\$;
+            " || { echo "Failed to create table 'articles'. Exiting."; exit 1; }
+            echo "Table 'articles' checked/created."
+
+            # Sleep for a while to ensure table creation
+            echo "Sleeping for 5 seconds to ensure table creation..."
+            sleep 5
+
+            # Insert 200 records into PostgreSQL
+            echo "Inserting 200 records into PostgreSQL..."
+            for i in $(seq 1 200); do
+              if ! PGPASSWORD=$POSTGRES_PASSWORD psql -h postgres.postgres-ns.svc.cluster.local -U postgres -d mydatabase -c "INSERT INTO articles (nome_articolo, size, price) VALUES ('articolo-$i', 'size-$i', $(shuf -i 10-100 -n 1)) ON CONFLICT DO NOTHING;"; then
+                echo "Failed to insert record $i. Exiting."
+                exit 1
+              fi
+            done
+            echo "Records inserted into PostgreSQL."
+
+            # Fetch the last 50 records from PostgreSQL
+            echo "Fetching the last 50 records from PostgreSQL..."
+            if ! PGPASSWORD=$POSTGRES_PASSWORD psql -h postgres.postgres-ns.svc.cluster.local -U postgres -d mydatabase -Atc "SELECT id, nome_articolo, size, price FROM articles ORDER BY id DESC LIMIT 50;" > /tmp/articles.txt; then
+              echo "Failed to fetch records. Exiting."
+              exit 1
+            fi
+            echo "Fetched records: $(cat /tmp/articles.txt)"
+
+            # Insert articles into Redis
+            echo "Inserting articles into Redis..."
+            while IFS=$'|' read -r id nome_articolo size price; do
+              json_data=$(jq -n \
+                --arg id "$id" \
+                --arg nome_articolo "$nome_articolo" \
+                --arg size "$size" \
+                --arg price "$price" \
+                '{id: $id, nome_articolo: $nome_articolo, size: $size, price: $price}')
+              echo "Setting key: $id with value: $json_data"
+              if ! redis-cli -h $MASTER_IP -p $MASTER_PORT -a $REDIS_PASSWORD SET "$id" "$json_data"; then
+                echo "Failed to set key $id in Redis. Exiting."
+                exit 1
+              fi
+            done < /tmp/articles.txt
+
+            echo "Data insertion into Redis completed."
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: POSTGRES_PASSWORD
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-secret
+              key: REDIS_PASSWORD
