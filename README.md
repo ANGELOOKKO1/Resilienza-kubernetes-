@@ -52,7 +52,7 @@
 ```kubectl get svc -n postgres-ns ```
 
 #### Svolta la configurazione di postgres vi srà possibile accedere al pod mediante il comando 
-```kubectl exec -it postgres-0 -n postgres-ns -- sh -c 'PGPASSWORD=tren7979  psql -U postgres -d mydatabase'```
+```kubectl exec -it postgres-0 -n postgres-ns -- sh -c 'PGPASSWORD=password  psql -U postgres -d mydatabase'```
 
 #### Una volta svolta l'impostazione dei database nei ruoli desiderati sarà possibile mediante dei job inserire dei dati e porre una loro interrogazione 
 #### Sposto verso il namespace creato
